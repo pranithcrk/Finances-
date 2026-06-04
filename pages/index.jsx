@@ -185,17 +185,22 @@ export default function App() {
     const committed = sumA(b.committed);
     const expItems = (expenses[mk]||[]);
     const livingActual = expItems.reduce((s,i)=>s+i.amount,0);
-    const livingBudget = sumA(b.living);
-    const livingUsed = livingActual>0?livingActual:livingBudget;
-    const tFixed = committed+livingUsed;
+    const livingBudgetTotal = Object.values(catBudgets).reduce((s,v)=>s+(parseFloat(v)||0),0);
+    // variance: negative = overspent (hurts flex), positive = underspent (helps flex)
+    const livingVariance = livingBudgetTotal - livingActual;
+    // fixed = committed + living budget (reserved upfront)
+    const tFixed = committed + livingBudgetTotal;
     const tSave = sumA(b.save);
     const flexItems = (flex[mk]||[]);
     const flexLog = flexItems.reduce((s,i)=>s+i.amount,0);
     let travel=0; trips.forEach(t=>t.expenses.forEach(e=>{if(e.month===mk)travel+=e.amt;}));
-    const flexSpent=flexLog+travel;
-    const leftover=income-tFixed-tSave-flexSpent;
-    return {income,committed,livingActual,livingBudget,livingUsed,tFixed,tSave,flexLog,travel,flexSpent,leftover,expItems,flexItems};
-  }, [syncedBudget, expenses, flex, trips, income]);
+    const flexSpent = flexLog + travel;
+    // Flex pool = income - committed - savings - living budget - travel
+    // Adjusted by variance: overspend shrinks it, underspend grows it
+    const flexPool = income - committed - tSave - livingBudgetTotal - travel;
+    const leftover = flexPool - flexLog + livingVariance;
+    return {income,committed,livingActual,livingBudgetTotal,livingVariance,tFixed,tSave,flexLog,travel,flexSpent,flexPool,leftover,expItems,flexItems};
+  }, [syncedBudget, expenses, flex, trips, income, catBudgets]);
 
   if (!loaded) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'Geist Mono, monospace',fontSize:'13px',color:'#9a9690'}}>Loading fin. ···</div>;
 
@@ -299,9 +304,11 @@ function Dashboard({s,budget,income,actualCat,flex,trips,cards,expenses,catBudge
   const livingTotal = livingCatGroups.reduce((s,[,v])=>s+v,0);
 
   const segs = [
-    {label:'Fixed',v:s.tFixed,c:'var(--fixed)'},
+    {label:'Committed',v:s.committed,c:'var(--fixed)'},
+    {label:'Living budget',v:s.livingBudgetTotal,c:'var(--living)'},
     {label:'Savings & Inv',v:s.tSave,c:'var(--save)'},
-    {label:'Flex spent',v:flexSpent,c:'var(--flex)'},
+    {label:'Travel',v:s.travel,c:'var(--trav)'},
+    {label:'Flex spent',v:s.flexLog,c:'var(--flex)'},
     {label:'Free',v:Math.max(0,s.leftover),c:'var(--border2)'},
   ];
 
@@ -331,22 +338,27 @@ function Dashboard({s,budget,income,actualCat,flex,trips,cards,expenses,catBudge
             }
           </div>
           <div className="income-breakdown">
-            <div className="ib-item"><div className="ib-label">Fixed</div><div className="ib-val neg">{fmt(s.tFixed)}</div></div>
+            <div className="ib-item"><div className="ib-label">Committed</div><div className="ib-val neg">{fmt(s.committed)}</div></div>
+            <div className="ib-item"><div className="ib-label">Living budget</div><div className="ib-val neg">{fmt(s.livingBudgetTotal)}</div></div>
             <div className="ib-item"><div className="ib-label">Savings/Inv</div><div className="ib-val neg">{fmt(s.tSave)}</div></div>
-            <div className="ib-item"><div className="ib-label">Committed Out</div><div className="ib-val neg">{fmt(s.tFixed+s.tSave)}</div></div>
           </div>
         </div>
 
         {/* FLEX HERO */}
         <div className="flex-hero">
           <div className="fh-left">
-            <div className="fh-label">Flex — free to spend or save</div>
+            <div className="fh-label">Flex remaining</div>
             <div className={`fh-val${s.leftover<0?' neg':''}`}>{fmt(s.leftover)}</div>
-            <div className="fh-sub">{s.leftover>=0?`You can spend up to ${fmt(s.leftover)} more this month — or move it to savings.`:`You're ${fmt(-s.leftover)} over your free budget this month.`}</div>
+            <div className="fh-sub">
+              {s.leftover>=0
+                ? `${fmt(s.flexPool)} pool · ${s.livingVariance>=0?`+${fmt(s.livingVariance)} living underspend`:`${fmt(s.livingVariance)} living overspend`} · ${fmt(s.flexLog)} flex spent`
+                : `You're ${fmt(-s.leftover)} over your free budget this month.`}
+            </div>
           </div>
           <div className="fh-right">
-            <div className="fh-stat"><div className="fh-stat-label">Flex pool</div><div className="fh-stat-val">{fmt(income-s.tFixed-s.tSave)}</div></div>
-            <div className="fh-stat"><div className="fh-stat-label">Spent (flex+travel)</div><div className="fh-stat-val">{fmt(flexSpent)}</div></div>
+            <div className="fh-stat"><div className="fh-stat-label">Flex pool</div><div className="fh-stat-val">{fmt(s.flexPool)}</div></div>
+            <div className="fh-stat"><div className="fh-stat-label">Living variance</div><div className="fh-stat-val" style={{color:s.livingVariance>=0?'#7ee0b0':'#ff9b6b'}}>{s.livingVariance>=0?'+':''}{fmt(s.livingVariance)}</div></div>
+            <div className="fh-stat"><div className="fh-stat-label">Flex spent</div><div className="fh-stat-val">{fmt(s.flexLog)}</div></div>
           </div>
         </div>
 
@@ -527,13 +539,15 @@ function Dashboard({s,budget,income,actualCat,flex,trips,cards,expenses,catBudge
         <div className="summary-bar">
           <div className="summary-item"><div className="summary-label">Take-Home</div><div className="summary-value green">{fmt(income)}</div></div>
           <div className="summary-div" />
-          <div className="summary-item"><div className="summary-label">Fixed</div><div className="summary-value">{fmt(s.tFixed)}</div></div>
+          <div className="summary-item"><div className="summary-label">Committed</div><div className="summary-value">{fmt(s.committed)}</div></div>
+          <div className="summary-div" />
+          <div className="summary-item"><div className="summary-label">Living budget</div><div className="summary-value">{fmt(s.livingBudgetTotal)}</div></div>
           <div className="summary-div" />
           <div className="summary-item"><div className="summary-label">Savings/Inv</div><div className="summary-value">{fmt(s.tSave)}</div></div>
           <div className="summary-div" />
-          <div className="summary-item"><div className="summary-label">Flex Spent</div><div className="summary-value">{fmt(flexSpent)}</div></div>
+          <div className="summary-item"><div className="summary-label">Travel</div><div className="summary-value">{fmt(s.travel)}</div></div>
           <div className="summary-div" />
-          <div className="summary-item"><div className="summary-label">Free / Save More</div><div className={`summary-value${s.leftover>=0?' green':' red'}`}>{fmt(s.leftover)}</div></div>
+          <div className="summary-item"><div className="summary-label">Flex remaining</div><div className={`summary-value${s.leftover>=0?' green':' red'}`}>{fmt(s.leftover)}</div></div>
         </div>
       </div>
     </div>
