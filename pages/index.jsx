@@ -67,6 +67,7 @@ export default function App() {
   const [goals, setGoals] = useState([]);
   const [cards, setCards] = useState(DEF_CARDS);
   const [notes, setNotes] = useState({});
+  const [catBudgets, setCatBudgets] = useState({Groceries:500,Lunches:120,'Eating Out':150,Transport:60,Health:100,Misc:100});
   const [toast, setToast] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saved' | 'saving' | 'error'
@@ -101,6 +102,7 @@ export default function App() {
           if (data.trips?.length) setTrips(data.trips);
           if (data.goals?.length) setGoals(data.goals);
           if (data.cards?.length) setCards(data.cards);
+          if (data.catBudgets) setCatBudgets(data.catBudgets);
         }
         setLoaded(true);
       })
@@ -120,6 +122,7 @@ export default function App() {
       trips: overrides.trips ?? trips,
       goals: overrides.goals ?? goals,
       cards: overrides.cards ?? cards,
+      catBudgets: overrides.catBudgets ?? catBudgets,
     };
     setSaveStatus('saving');
     fetch('/api/budget', {
@@ -150,6 +153,7 @@ export default function App() {
   const setTripsSave = t => { setTrips(t); scheduleSave({trips:t}); };
   const setGoalsSave = g => { setGoals(g); scheduleSave({goals:g}); };
   const setCardsSave = c => { setCards(c); scheduleSave({cards:c}); };
+  const setCatBudgetsSave = cb => { setCatBudgets(cb); scheduleSave({catBudgets:cb}); };
 
   // ── feeds ──
   const subsMonthlyTotal = useCallback(() => subs.reduce((s,x)=>s+(x.cycle==='annual'?x.amount/12:x.amount),0),[subs]);
@@ -224,12 +228,12 @@ export default function App() {
         </div>
       </nav>
 
-      {page==='dashboard'&&<Dashboard {...{s,budget:syncedBudget(),income,actualCat,flex,trips,curMonth,curYear,setCurMonth,setCurYear,monthKey,fmt,fmtd,setBudgetSave,setFlexSave,setIncomeSave,showToast,mk}} />}
+      {page==='dashboard'&&<Dashboard {...{s,budget:syncedBudget(),income,actualCat,flex,trips,cards,expenses,catBudgets,curMonth,curYear,setCurMonth,setCurYear,monthKey,fmt,fmtd,setBudgetSave,setFlexSave,setIncomeSave,showToast,mk}} />}
       {page==='subs'&&<Subs {...{subs,subsMonthlyTotal,setSubsSave,showToast}} />}
       {page==='utils'&&<Utils {...{utils,utilsMonthlyTotal,setUtilsSave,showToast}} />}
       {page==='invest'&&<Invest {...{budget:syncedBudget(),income,loan,goals,retVal,contribVal,setRetVal,setContribVal,setGoalsSave,setLoanSave,subs,showToast,fmt,fmtd}} />}
       {page==='travel'&&<Travel {...{trips,showTripForm,setShowTripForm,setTripsSave,showToast,monthKey:mk,fmt,fmtd}} />}
-      {page==='tracker'&&<Tracker {...{expenses,cards,budget:syncedBudget(),curMonth,curYear,setCurMonth,setCurYear,monthKey,setExpensesSave,notes,setNotes,showToast,fmt,fmtd}} />}
+      {page==='tracker'&&<Tracker {...{expenses,cards,budget:syncedBudget(),catBudgets,setCatBudgetsSave,curMonth,curYear,setCurMonth,setCurYear,monthKey,setExpensesSave,notes,setNotes,showToast,fmt,fmtd}} />}
       {page==='cards'&&<Cards {...{cards,expenses,curMonth,curYear,setCurMonth,setCurYear,monthKey,showCardForm,setShowCardForm,cardColor,setCardColor,setCardsSave,showToast,fmt,fmtd}} />}
       {page==='charts'&&<Charts {...{monthSnapshot,curMonth,curYear,setCurMonth,setCurYear,monthKey,budget:syncedBudget(),cards,income,trips,flex,expenses,fmt,fmtd}} />}
       {page==='suggest'&&<Suggest {...{monthSnapshot,mk,budget:syncedBudget(),subs,cards,expenses,flex,income,trips,goals,aiOutput,setAiOutput,aiLoading,setAiLoading,curMonth,curYear,fmt,fmtd}} />}
@@ -241,7 +245,7 @@ export default function App() {
 }
 
 // ═══════════════ DASHBOARD ═══════════════
-function Dashboard({s,budget,income,actualCat,flex,trips,curMonth,curYear,setCurMonth,setCurYear,monthKey,fmt,fmtd,setBudgetSave,setFlexSave,setIncomeSave,showToast,mk}) {
+function Dashboard({s,budget,income,actualCat,flex,trips,cards,expenses,catBudgets,curMonth,curYear,setCurMonth,setCurYear,monthKey,fmt,fmtd,setBudgetSave,setFlexSave,setIncomeSave,showToast,mk}) {
   const [incomeEdit, setIncomeEdit] = useState(false);
   const [incomeInput, setIncomeInput] = useState(String(income));
 
@@ -264,21 +268,21 @@ function Dashboard({s,budget,income,actualCat,flex,trips,curMonth,curYear,setCur
     const b=JSON.parse(JSON.stringify(budget));b[sec].splice(idx,1);setBudgetSave(b);showToast('Removed');
   };
   const addBudgetLine = sec => {
-    const e={committed:'📌',living:'🍽',save:'💰'}[sec];
+    const e={committed:'📌',save:'💰'}[sec];
     const b=JSON.parse(JSON.stringify(budget));
-    const item={emoji:e,name:'New item',amount:0,recurring:true};
-    if(sec==='living')item.cat='Misc';
-    b[sec].push(item);setBudgetSave(b);showToast('Added');
+    b[sec].push({emoji:e,name:'New item',amount:0,recurring:true});
+    setBudgetSave(b);showToast('Added');
   };
 
   const addFlex = () => {
     const desc=document.getElementById('flx-desc').value.trim();
     const amount=parseFloat(document.getElementById('flx-amount').value);
     const cat=document.getElementById('flx-cat').value;
+    const card=document.getElementById('flx-card').value;
     if(!desc||isNaN(amount)||amount<=0){showToast('Add item + amount');return;}
     const all=JSON.parse(JSON.stringify(flex));
     if(!all[mk])all[mk]=[];
-    const t=new Date();all[mk].push({desc,amount,cat,date:`${t.getMonth()+1}/${t.getDate()}`});
+    const t=new Date();all[mk].push({desc,amount,cat,card,date:`${t.getMonth()+1}/${t.getDate()}`});
     setFlexSave(all);
     document.getElementById('flx-desc').value='';document.getElementById('flx-amount').value='';
     showToast('Logged');
@@ -290,12 +294,18 @@ function Dashboard({s,budget,income,actualCat,flex,trips,curMonth,curYear,setCur
   const flexItems = flex[mk]||[];
   const flexSpent = s.flexSpent;
 
+  // Group living expenses from Expenses tab by category
+  const livingCatGroups = Object.entries(actualCat).sort((a,b)=>b[1]-a[1]);
+  const livingTotal = livingCatGroups.reduce((s,[,v])=>s+v,0);
+
   const segs = [
     {label:'Fixed',v:s.tFixed,c:'var(--fixed)'},
     {label:'Savings & Inv',v:s.tSave,c:'var(--save)'},
     {label:'Flex spent',v:flexSpent,c:'var(--flex)'},
     {label:'Free',v:Math.max(0,s.leftover),c:'var(--border2)'},
   ];
+
+  const CAT_EMOJI = {'Groceries':'🛒','Lunches':'🍱','Eating Out':'🍜','Transport':'🚌','Health':'💊','Misc':'📦'};
 
   return (
     <div className="page">
@@ -387,40 +397,41 @@ function Dashboard({s,budget,income,actualCat,flex,trips,curMonth,curYear,setCur
           </div>
           <button className="add-line-btn" onClick={()=>addBudgetLine('committed')}>+ Add committed expense</button>
 
-          <div className="subgroup-label">Living Expenses · budget vs actual</div>
-          <div className="col-headers" style={{gridTemplateColumns:'1fr 110px 110px 90px 36px'}}>
-            <div className="col-h">Item</div><div className="col-h">Budget</div><div className="col-h">Actual</div><div className="col-h">Freq</div><div className="col-h" />
-          </div>
-          <div className="row-list">
-            {budget.living.map((it,idx)=>{
-              const actual=actualCat[it.cat]||0;
-              const cls=actual>it.amount?'over':(actual>0?'under':'');
-              return (
-                <div key={idx} className="budget-row" style={{gridTemplateColumns:'1fr 110px 110px 90px 36px'}}>
-                  <div className="row-name">
-                    <span className="row-emoji">{it.emoji}</span>
-                    <input className="row-name-text" defaultValue={it.name}
-                      onBlur={e=>editBudget('living',idx,'name',e.target.value)}
-                      onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} />
-                  </div>
-                  <div className="row-cell right">
-                    <input className="editable-val" defaultValue={fmtd(it.amount)}
-                      onBlur={e=>editBudget('living',idx,'amount',e.target.value)}
-                      onFocus={e=>e.target.select()} onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} />
-                  </div>
-                  <div className={`actual-val ${cls}`}>{fmtd(actual)}</div>
-                  <div className="row-cell right">
-                    <span className={`recur-toggle${it.recurring?' recurring':''}`} onClick={()=>toggleRecur('living',idx)}>{it.recurring?'Rec':'1×'}</span>
-                  </div>
-                  <div className="row-cell" style={{textAlign:'center'}}>
-                    <button className="del-row-btn" onClick={()=>delBudget('living',idx)}>×</button>
+          {/* LIVING — grouped from Expenses tab, read-only */}
+          <div className="subgroup-label">Living Expenses · from Expenses tab</div>
+          {livingCatGroups.length === 0
+            ? <div className="feed-note" style={{padding:'12px 0'}}>No living expenses logged this month — add them on the <b>Expenses</b> tab.</div>
+            : <>
+                <div className="col-headers" style={{gridTemplateColumns:'1fr 110px 110px'}}>
+                  <div className="col-h">Category</div><div className="col-h">Spent</div><div className="col-h">% of living</div>
+                </div>
+                <div className="row-list">
+                  {livingCatGroups.map(([cat,amt])=>{
+                    const budgeted = catBudgets[cat] || 0;
+                    const over = budgeted > 0 && amt > budgeted;
+                    const pct = livingTotal>0?Math.round(amt/livingTotal*100):0;
+                    return (
+                      <div key={cat} className="budget-row" style={{gridTemplateColumns:'1fr 110px 110px'}}>
+                        <div className="row-name">
+                          <span className="row-emoji">{CAT_EMOJI[cat]||'📦'}</span>
+                          <span style={{fontSize:'12px'}}>{cat}</span>
+                          {budgeted>0&&<span style={{fontSize:'10px',color:over?'var(--red)':'var(--muted)',marginLeft:'8px'}}>{over?`▲ over by ${fmt(amt-budgeted)}`:`budget ${fmt(budgeted)}`}</span>}
+                        </div>
+                        <div className="row-cell right" style={{fontFamily:'Geist Mono, monospace',fontSize:'13px',color:over?'var(--red)':'var(--text)'}}>{fmtd(amt)}</div>
+                        <div className="row-cell right" style={{fontSize:'11px',color:'var(--muted)'}}>{pct}%</div>
+                      </div>
+                    );
+                  })}
+                  {/* Total row */}
+                  <div className="budget-row" style={{gridTemplateColumns:'1fr 110px 110px',borderTop:'1px solid var(--border2)',marginTop:'4px'}}>
+                    <div className="row-name"><span className="row-emoji">Σ</span><span style={{fontSize:'12px',fontWeight:500}}>Total living</span></div>
+                    <div className="row-cell right" style={{fontFamily:'Instrument Serif, serif',fontSize:'16px'}}>{fmtd(livingTotal)}</div>
+                    <div className="row-cell right" style={{fontSize:'11px',color:'var(--muted)'}}>100%</div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-          <div className="feed-note">↳ "Actual" pulls from matching categories you log on the Expenses tab this month.</div>
-          <button className="add-line-btn" onClick={()=>addBudgetLine('living')}>+ Add living expense</button>
+              </>
+          }
+          <div className="feed-note">↳ Grouped from the Expenses tab. Go there to add or edit individual items.</div>
         </div>
 
         {/* SAVINGS */}
@@ -462,35 +473,54 @@ function Dashboard({s,budget,income,actualCat,flex,trips,curMonth,curYear,setCur
         {/* FLEX LOGGER */}
         <div className="section">
           <div className="section-head">
-            <div className="section-head-left"><span className="section-dot" style={{background:'var(--flex)'}} /><span className="section-label">Flex Spending — log buys here</span></div>
+            <div className="section-head-left"><span className="section-dot" style={{background:'var(--flex)'}} /><span className="section-label">Flex Spending</span></div>
             <div className="section-total">{fmt(flexSpent)}</div>
           </div>
-          <div className="flex-logger">
-            <div className="fl-form">
+          <div className="add-form" style={{marginBottom:'14px'}}>
+            <div className="aform-grid" style={{gridTemplateColumns:'1.4fr 100px 1fr 1fr auto'}}>
               <div className="form-group"><div className="form-label">What did you buy?</div><input className="form-input" id="flx-desc" placeholder="e.g. New headphones" onKeyDown={e=>{if(e.key==='Enter')addFlex();}} /></div>
               <div className="form-group"><div className="form-label">Amount $</div><input className="form-input" id="flx-amount" type="number" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==='Enter')addFlex();}} /></div>
-              <div className="form-group"><div className="form-label">Type</div><select className="form-input form-select" id="flx-cat"><option>Shopping</option><option>Gadgets</option><option>Experience</option><option>Gift</option><option>Health</option><option>Other</option></select></div>
+              <div className="form-group"><div className="form-label">Category</div><select className="form-input form-select" id="flx-cat"><option>Shopping</option><option>Gadgets</option><option>Experience</option><option>Gift</option><option>Health</option><option>Other</option></select></div>
+              <div className="form-group"><div className="form-label">Card</div><select className="form-input form-select" id="flx-card">{cards.map((c,i)=><option key={i}>{c.name}</option>)}<option>Cash</option></select></div>
               <button className="add-btn" onClick={addFlex}>+ Log</button>
             </div>
-            <div className="fl-list">
-              {flexItems.length===0&&trips.every(t=>t.expenses.every(e=>e.month!==mk))
-                ? <div className="fl-empty">No flex purchases logged this month.</div>
-                : flexItems.map((it,idx)=>({it,idx})).reverse().map(({it,idx})=>(
-                    <div key={idx} className="fl-item">
-                      <span>{it.desc} <span className="chip">{it.cat}</span> <span className="exp-note">{it.date}</span></span>
-                      <span>{fmtd(it.amount)} <button className="del-btn" onClick={()=>delFlex(idx)}>×</button></span>
-                    </div>
-                  ))
-              }
-              {trips.flatMap(t=>t.expenses.filter(e=>e.month===mk).map((e,i)=>(
-                <div key={'t'+i} className="fl-item fl-travel">
-                  <span>✈ {t.name}: {e.desc} <span className="chip">Travel</span></span>
-                  <span>{fmtd(e.amt)}</span>
-                </div>
-              )))}
-            </div>
           </div>
-          <div className="feed-note">↳ Travel spend logged on the Travel tab also draws from your flex pool.</div>
+          <div className="item-list">
+            <div className="expense-item header-row">
+              <div className="exp-cell head">Item</div>
+              <div className="exp-cell head center">Category</div>
+              <div className="exp-cell head center hide-mobile">Card</div>
+              <div className="exp-cell head right">Amount</div>
+              <div className="exp-cell head center hide-mobile">Date</div>
+              <div className="exp-cell" />
+            </div>
+            {flexItems.length===0&&trips.every(t=>t.expenses.every(e=>e.month!==mk))
+              ? <div style={{background:'var(--surface)',padding:'20px',textAlign:'center',fontSize:'11px',color:'var(--muted2)',fontStyle:'italic'}}>No flex purchases logged this month.</div>
+              : <>
+                  {flexItems.map((it,idx)=>({it,idx})).reverse().map(({it,idx})=>(
+                    <div key={idx} className="expense-item">
+                      <div className="exp-cell">{it.desc}</div>
+                      <div className="exp-cell center"><span className="chip">{it.cat}</span></div>
+                      <div className="exp-cell center hide-mobile"><span className="chip" style={{background:'rgba(0,0,0,0.03)'}}>{it.card||'Cash'}</span></div>
+                      <div className="exp-cell right">{fmtd(it.amount)}</div>
+                      <div className="exp-cell center hide-mobile exp-note">{it.date}</div>
+                      <div className="exp-cell center"><button className="del-btn" onClick={()=>delFlex(idx)}>×</button></div>
+                    </div>
+                  ))}
+                  {trips.flatMap(t=>t.expenses.filter(e=>e.month===mk).map((e,i)=>(
+                    <div key={'t'+i} className="expense-item" style={{color:'var(--trav)'}}>
+                      <div className="exp-cell">✈ {t.name}: {e.desc}</div>
+                      <div className="exp-cell center"><span className="chip">Travel</span></div>
+                      <div className="exp-cell center hide-mobile">—</div>
+                      <div className="exp-cell right">{fmtd(e.amt)}</div>
+                      <div className="exp-cell center hide-mobile exp-note">{e.month}</div>
+                      <div className="exp-cell" />
+                    </div>
+                  )))}
+                </>
+            }
+          </div>
+          <div className="feed-note" style={{marginTop:'6px'}}>↳ Travel spend logged on the Travel tab also draws from your flex pool.</div>
         </div>
 
         {/* SUMMARY */}
@@ -803,13 +833,15 @@ function Travel({trips,showTripForm,setShowTripForm,setTripsSave,showToast,month
 }
 
 // ═══════════════ TRACKER ═══════════════
-function Tracker({expenses,cards,budget,curMonth,curYear,setCurMonth,setCurYear,monthKey,setExpensesSave,notes,setNotes,showToast,fmt,fmtd}) {
+function Tracker({expenses,cards,budget,catBudgets,setCatBudgetsSave,curMonth,curYear,setCurMonth,setCurYear,monthKey,setExpensesSave,notes,setNotes,showToast,fmt,fmtd}) {
   const changeMonth = d => { let m=curMonth+d,y=curYear;if(m>11){m=0;y++;}if(m<0){m=11;y--;}setCurMonth(m);setCurYear(y); };
   const mk = monthKey(curMonth,curYear);
   const items = expenses[mk]||[];
   const total = items.reduce((s,i)=>s+i.amount,0);
-  const livingBudget = sumA(budget.living);
-  const rem = livingBudget-total;
+  const totalBudget = Object.values(catBudgets).reduce((s,v)=>s+(parseFloat(v)||0),0);
+  const rem = totalBudget - total;
+
+  const CATS = ['Groceries','Eating Out','Lunches','Transport','Health','Misc'];
 
   const addExpense = () => {
     const desc=document.getElementById('exp-desc').value.trim();
@@ -830,6 +862,11 @@ function Tracker({expenses,cards,budget,curMonth,curYear,setCurMonth,setCurYear,
     if(f==='amount'){const n=parseFloat(v.replace(/[$,]/g,''));if(!isNaN(n)&&n>=0)all[mk][i].amount=n;}else all[mk][i][f]=v;
     setExpensesSave(all);
   };
+  const editCatBudget = (cat, val) => {
+    const n = parseFloat(val.replace(/[$,]/g,''));
+    if(isNaN(n)||n<0) return;
+    setCatBudgetsSave({...catBudgets,[cat]:n});
+  };
 
   const cats={};items.forEach(i=>cats[i.cat]=(cats[i.cat]||0)+i.amount);
   const sortedCats=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
@@ -845,20 +882,60 @@ function Tracker({expenses,cards,budget,curMonth,curYear,setCurMonth,setCurYear,
           <button className="month-btn" onClick={()=>changeMonth(1)}>→</button>
         </div>
       </div>
+
+      {/* CATEGORY BUDGETS */}
+      <div className="section" style={{marginBottom:'24px'}}>
+        <div className="section-head">
+          <div className="section-head-left"><span className="section-dot" style={{background:'var(--living)'}} /><span className="section-label">Category Budgets</span></div>
+          <div style={{fontSize:'11px',color:'var(--muted)'}}>monthly targets</div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'10px'}}>
+          {CATS.map(cat=>{
+            const spent=cats[cat]||0;
+            const budgeted=catBudgets[cat]||0;
+            const over=budgeted>0&&spent>budgeted;
+            const pct=budgeted>0?Math.min(100,Math.round(spent/budgeted*100)):0;
+            return (
+              <div key={cat} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px 14px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                  <span style={{fontSize:'12px',fontWeight:500}}>{cat}</span>
+                  <span style={{fontSize:'11px',color:over?'var(--red)':'var(--muted)'}}>{fmtd(spent)}</span>
+                </div>
+                <div style={{background:'var(--border)',borderRadius:'3px',height:'5px',marginBottom:'8px',overflow:'hidden'}}>
+                  <div style={{height:'100%',borderRadius:'3px',width:pct+'%',background:over?'var(--red)':'var(--save)',transition:'width 0.4s ease'}} />
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                  <span style={{fontSize:'10px',color:'var(--muted)'}}>Budget $</span>
+                  <input
+                    style={{flex:1,background:'var(--bg)',border:'1px solid var(--border)',borderRadius:'5px',padding:'4px 7px',fontFamily:'Geist Mono, monospace',fontSize:'12px',color:'var(--text)'}}
+                    defaultValue={budgeted||''}
+                    placeholder="0"
+                    onBlur={e=>editCatBudget(cat,e.target.value)}
+                    onFocus={e=>e.target.select()}
+                    onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="feed-note" style={{marginTop:'10px'}}>↳ These budgets show on the Overview as comparison targets.</div>
+      </div>
+
       <div className="month-summary">
         <div className="msm-card"><div className="msm-label">Spent</div><div className="msm-val red">{fmtd(total)}</div></div>
-        <div className="msm-card"><div className="msm-label">Living Budget</div><div className="msm-val">{fmt(livingBudget)}</div></div>
+        <div className="msm-card"><div className="msm-label">Total Budget</div><div className="msm-val">{fmt(totalBudget)}</div></div>
         <div className="msm-card"><div className="msm-label">Remaining</div><div className={`msm-val${rem>=0?' green':' red'}`}>{fmt(rem)}</div></div>
       </div>
       <div className="add-form">
         <div className="aform-grid" style={{gridTemplateColumns:'1.4fr 100px 1fr 1fr auto'}}>
           <div className="form-group"><div className="form-label">Description</div><input className="form-input" id="exp-desc" placeholder="e.g. Walmart run" onKeyDown={e=>{if(e.key==='Enter')addExpense();}} /></div>
           <div className="form-group"><div className="form-label">Amount $</div><input className="form-input" id="exp-amount" type="number" step="0.01" placeholder="0.00" onKeyDown={e=>{if(e.key==='Enter')addExpense();}} /></div>
-          <div className="form-group"><div className="form-label">Category</div><select className="form-input form-select" id="exp-cat"><option>Groceries</option><option>Eating Out</option><option>Lunches</option><option>Transport</option><option>Health</option><option>Misc</option></select></div>
+          <div className="form-group"><div className="form-label">Category</div><select className="form-input form-select" id="exp-cat">{CATS.map(c=><option key={c}>{c}</option>)}</select></div>
           <div className="form-group"><div className="form-label">Card</div><select className="form-input form-select" id="exp-card">{cards.map((c,i)=><option key={i}>{c.name}</option>)}<option>Cash</option></select></div>
           <button className="add-btn" onClick={addExpense}>+ Add</button>
         </div>
-        <div className="feed-note" style={{marginTop:'10px'}}>↳ These appear as "Actual" under Fixed → Living on the Overview.</div>
+        <div className="feed-note" style={{marginTop:'10px'}}>↳ Expenses grouped by category automatically appear on the Overview.</div>
       </div>
       <div className="item-list">
         <div className="expense-item header-row">
