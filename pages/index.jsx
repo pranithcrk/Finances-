@@ -475,10 +475,10 @@ function Dashboard({s,budget,income,actualCat,flex,trips,curMonth,curYear,setCur
             <div className="fl-list">
               {flexItems.length===0&&trips.every(t=>t.expenses.every(e=>e.month!==mk))
                 ? <div className="fl-empty">No flex purchases logged this month.</div>
-                : [...flexItems].reverse().map((it,i)=>(
-                    <div key={i} className="fl-item">
+                : flexItems.map((it,idx)=>({it,idx})).reverse().map(({it,idx})=>(
+                    <div key={idx} className="fl-item">
                       <span>{it.desc} <span className="chip">{it.cat}</span> <span className="exp-note">{it.date}</span></span>
-                      <span>{fmtd(it.amount)} <button className="del-btn" onClick={()=>delFlex(flexItems.length-1-i)}>×</button></span>
+                      <span>{fmtd(it.amount)} <button className="del-btn" onClick={()=>delFlex(idx)}>×</button></span>
                     </div>
                   ))
               }
@@ -864,10 +864,8 @@ function Tracker({expenses,cards,budget,curMonth,curYear,setCurMonth,setCurYear,
         <div className="expense-item header-row">
           <div className="exp-cell head">Description</div><div className="exp-cell head center">Category</div><div className="exp-cell head center hide-mobile">Card</div><div className="exp-cell head right">Amount</div><div className="exp-cell head center hide-mobile">Date</div><div className="exp-cell" />
         </div>
-        {[...items].reverse().map((it,i)=>{
-          const idx=items.length-1-i;
-          return (
-            <div key={i} className="expense-item">
+        {items.map((it,idx)=>({it,idx})).reverse().map(({it,idx})=>(
+            <div key={idx} className="expense-item">
               <div className="exp-cell"><input className="edit-inline" defaultValue={it.desc} onBlur={e=>editExp(idx,'desc',e.target.value)} onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} /></div>
               <div className="exp-cell center"><span className="chip">{it.cat}</span></div>
               <div className="exp-cell center hide-mobile"><span className="chip" style={{background:'rgba(0,0,0,0.03)'}}>{it.card||'Cash'}</span></div>
@@ -875,8 +873,7 @@ function Tracker({expenses,cards,budget,curMonth,curYear,setCurMonth,setCurYear,
               <div className="exp-cell center hide-mobile exp-note">{it.date}</div>
               <div className="exp-cell center"><button className="del-btn" onClick={()=>delExp(idx)}>×</button></div>
             </div>
-          );
-        })}
+        ))}
       </div>
       {items.length===0&&<div className="empty-state"><div className="empty-state-icon">◦</div><div>No expenses logged this month.</div></div>}
       {sortedCats.length>0&&<div className="cat-breakdown">
