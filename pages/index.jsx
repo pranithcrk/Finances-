@@ -326,49 +326,71 @@ function Dashboard({s,budget,income,actualCat,flex,trips,cards,expenses,catBudge
           </div>
         </div>
 
-        {/* INCOME */}
-        <div className="income-hero">
-          <div>
-            <div className="income-label">Monthly Take-Home</div>
-            {incomeEdit
-              ? <input className="income-edit-input" autoFocus value={incomeInput} onChange={e=>setIncomeInput(e.target.value)}
-                  onBlur={()=>{const n=parseFloat(incomeInput.replace(/[$,]/g,''));if(!isNaN(n)&&n>0){setIncomeSave(n);}setIncomeEdit(false);showToast('Income updated');}}
-                  onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} />
-              : <div className="income-val" onClick={()=>{setIncomeInput(String(income));setIncomeEdit(true);}}>{fmt(income)}</div>
-            }
-          </div>
-          <div className="income-breakdown">
-            <div className="ib-item"><div className="ib-label">Committed</div><div className="ib-val neg">{fmt(s.committed)}</div></div>
-            <div className="ib-item"><div className="ib-label">Living budget</div><div className="ib-val neg">{fmt(s.livingBudgetTotal)}</div></div>
-            <div className="ib-item"><div className="ib-label">Savings/Inv</div><div className="ib-val neg">{fmt(s.tSave)}</div></div>
-          </div>
-        </div>
-
-        {/* FLEX HERO */}
-        <div className="flex-hero">
-          <div className="fh-left">
-            <div className="fh-label">Flex remaining</div>
-            <div className={`fh-val${s.leftover<0?' neg':''}`}>{fmt(s.leftover)}</div>
-            <div className="fh-sub">
-              {s.leftover>=0
-                ? `${fmt(s.flexPool)} pool · ${s.livingVariance>=0?`+${fmt(s.livingVariance)} living underspend`:`${fmt(s.livingVariance)} living overspend`} · ${fmt(s.flexLog)} flex spent`
-                : `You're ${fmt(-s.leftover)} over your free budget this month.`}
+        {/* ── MONEY FLOW SUMMARY ── */}
+        <div className="money-flow-card">
+          <div className="mf-row">
+            <div className="mf-item">
+              <div className="mf-icon" style={{background:'rgba(255,255,255,0.12)'}}>💰</div>
+              <div className="mf-body">
+                <div className="mf-label">Total salary</div>
+                {incomeEdit
+                  ? <input className="mf-edit-input" autoFocus value={incomeInput} onChange={e=>setIncomeInput(e.target.value)}
+                      onBlur={()=>{const n=parseFloat(incomeInput.replace(/[$,]/g,''));if(!isNaN(n)&&n>0){setIncomeSave(n);}setIncomeEdit(false);showToast('Income updated');}}
+                      onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} />
+                  : <div className="mf-val" onClick={()=>{setIncomeInput(String(income));setIncomeEdit(true);}} title="Click to edit">{fmt(income)}</div>
+                }
+                <div className="mf-sub">click to edit</div>
+              </div>
+            </div>
+            <div className="mf-arrow">→</div>
+            <div className="mf-item">
+              <div className="mf-icon" style={{background:'rgba(45,106,79,0.3)'}}>📈</div>
+              <div className="mf-body">
+                <div className="mf-label">Already invested</div>
+                <div className="mf-val">{fmt(s.tSave)}</div>
+                <div className="mf-sub">{Math.round(s.tSave/income*100)}% of salary</div>
+              </div>
+            </div>
+            <div className="mf-arrow">→</div>
+            <div className="mf-item">
+              <div className="mf-icon" style={{background:'rgba(0,0,0,0.2)'}}>🏠</div>
+              <div className="mf-body">
+                <div className="mf-label">Fixed expenses</div>
+                <div className="mf-val">{fmt(s.committed)}</div>
+                <div className="mf-sub">rent, bills, subs</div>
+              </div>
+            </div>
+            <div className="mf-arrow">→</div>
+            <div className="mf-item">
+              <div className="mf-icon" style={{background:'rgba(176,137,104,0.3)'}}>🛒</div>
+              <div className="mf-body">
+                <div className="mf-label">Day-to-day budget</div>
+                <div className="mf-val">{fmt(s.livingBudgetTotal)}</div>
+                <div className="mf-sub">{s.livingVariance===0?'not tracked yet':s.livingVariance>0?`${fmt(s.livingVariance)} still to spend`:`${fmt(-s.livingVariance)} over budget`}</div>
+              </div>
+            </div>
+            <div className="mf-arrow">→</div>
+            <div className="mf-item mf-item-highlight">
+              <div className="mf-icon" style={{background:s.leftover>=0?'rgba(45,106,79,0.4)':'rgba(193,68,14,0.4)'}}>
+                {s.leftover>=0?'✦':'⚠'}
+              </div>
+              <div className="mf-body">
+                <div className="mf-label">You can still spend</div>
+                <div className={`mf-val mf-val-big${s.leftover<0?' neg':''}`}>{fmt(s.leftover)}</div>
+                <div className="mf-sub">{s.leftover>=0?`after ${fmt(s.flexLog)} flex spent`:`over by ${fmt(-s.leftover)}`}</div>
+              </div>
             </div>
           </div>
-          <div className="fh-right">
-            <div className="fh-stat"><div className="fh-stat-label">Flex pool</div><div className="fh-stat-val">{fmt(s.flexPool)}</div></div>
-            <div className="fh-stat"><div className="fh-stat-label">Living variance</div><div className="fh-stat-val" style={{color:s.livingVariance>=0?'#7ee0b0':'#ff9b6b'}}>{s.livingVariance>=0?'+':''}{fmt(s.livingVariance)}</div></div>
-            <div className="fh-stat"><div className="fh-stat-label">Flex spent</div><div className="fh-stat-val">{fmt(s.flexLog)}</div></div>
-          </div>
-        </div>
-
-        {/* alloc bar */}
-        <div className="alloc-bar-wrap">
-          <div className="alloc-track">
-            {segs.map(seg=><div key={seg.label} className="alloc-seg" style={{width:Math.max(0,(seg.v/income)*100)+'%',background:seg.c}} />)}
-          </div>
-          <div className="alloc-legend">
-            {segs.map(seg=><div key={seg.label} className="al-item"><span className="al-dot" style={{background:seg.c}} /><span className="al-text"><b>{seg.label}</b> {fmt(seg.v)} · {Math.round((seg.v/income)*100)}%</span></div>)}
+          {/* progress bar */}
+          <div className="mf-bar-wrap">
+            {[
+              {v:s.tSave,c:'var(--save)',l:'Invested'},
+              {v:s.committed,c:'var(--fixed)',l:'Fixed'},
+              {v:s.livingBudgetTotal,c:'var(--living)',l:'Living'},
+              {v:s.travel,c:'var(--trav)',l:'Travel'},
+              {v:s.flexLog,c:'var(--flex)',l:'Flex spent'},
+              {v:Math.max(0,s.leftover),c:'rgba(255,255,255,0.15)',l:'Free'},
+            ].map(seg=><div key={seg.l} className="mf-seg" style={{width:Math.max(0,(seg.v/income)*100)+'%',background:seg.c}} title={`${seg.l}: ${fmt(seg.v)}`} />)}
           </div>
         </div>
 
@@ -537,17 +559,17 @@ function Dashboard({s,budget,income,actualCat,flex,trips,cards,expenses,catBudge
 
         {/* SUMMARY */}
         <div className="summary-bar">
-          <div className="summary-item"><div className="summary-label">Take-Home</div><div className="summary-value green">{fmt(income)}</div></div>
+          <div className="summary-item"><div className="summary-label">Salary</div><div className="summary-value green">{fmt(income)}</div></div>
           <div className="summary-div" />
-          <div className="summary-item"><div className="summary-label">Committed</div><div className="summary-value">{fmt(s.committed)}</div></div>
+          <div className="summary-item"><div className="summary-label">Invested</div><div className="summary-value">{fmt(s.tSave)}</div></div>
           <div className="summary-div" />
-          <div className="summary-item"><div className="summary-label">Living budget</div><div className="summary-value">{fmt(s.livingBudgetTotal)}</div></div>
+          <div className="summary-item"><div className="summary-label">Fixed</div><div className="summary-value">{fmt(s.committed)}</div></div>
           <div className="summary-div" />
-          <div className="summary-item"><div className="summary-label">Savings/Inv</div><div className="summary-value">{fmt(s.tSave)}</div></div>
+          <div className="summary-item"><div className="summary-label">Day-to-day</div><div className="summary-value">{fmt(s.livingBudgetTotal)}</div></div>
           <div className="summary-div" />
           <div className="summary-item"><div className="summary-label">Travel</div><div className="summary-value">{fmt(s.travel)}</div></div>
           <div className="summary-div" />
-          <div className="summary-item"><div className="summary-label">Flex remaining</div><div className={`summary-value${s.leftover>=0?' green':' red'}`}>{fmt(s.leftover)}</div></div>
+          <div className="summary-item"><div className="summary-label">Can still spend</div><div className={`summary-value${s.leftover>=0?' green':' red'}`}>{fmt(s.leftover)}</div></div>
         </div>
       </div>
     </div>
@@ -1196,19 +1218,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:200;background:var(--bg);border-
 .container{max-width:940px;margin:0 auto;padding:44px 36px;}
 .ph{margin-bottom:28px;}.pt{font-family:'Instrument Serif',serif;font-size:32px;letter-spacing:-0.5px;color:var(--ink);}.psub{color:var(--muted);font-size:12px;margin-top:4px;}
 .ph-flex{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:14px;}
-.income-hero{background:var(--text);color:var(--bg);border-radius:14px;padding:26px 30px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px;}
-.income-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.6;margin-bottom:6px;}
-.income-val{font-family:'Instrument Serif',serif;font-size:42px;letter-spacing:-1px;line-height:1;cursor:pointer;border-radius:6px;padding:2px 6px;transition:background 0.15s;}
-.income-val:hover{background:rgba(255,255,255,0.1);}
-.income-edit-input{font-family:'Instrument Serif',serif;font-size:42px;letter-spacing:-1px;background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:6px;padding:2px 6px;width:200px;outline:none;}
-.income-breakdown{display:flex;gap:24px;}.ib-item{text-align:right;}.ib-label{font-size:10px;opacity:0.55;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;}.ib-val{font-family:'Instrument Serif',serif;font-size:21px;letter-spacing:-0.5px;}.ib-val.pos{color:#7ee0b0;}.ib-val.neg{color:#ff9b6b;}
-.flex-hero{background:linear-gradient(135deg,#2d6a4f,#1d3557);color:#fff;border-radius:14px;padding:24px 30px;margin-bottom:26px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px;}
-.fh-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.7;margin-bottom:6px;}
-.fh-val{font-family:'Instrument Serif',serif;font-size:40px;letter-spacing:-1px;line-height:1;}.fh-val.neg{color:#ff9b6b;}
-.fh-sub{font-size:11px;opacity:0.7;margin-top:8px;}
-.fh-right{display:flex;gap:22px;}.fh-stat{text-align:right;}.fh-stat-label{font-size:9px;opacity:0.6;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:3px;}.fh-stat-val{font-family:'Instrument Serif',serif;font-size:18px;}
-.alloc-bar-wrap{margin-bottom:34px;}.alloc-track{display:flex;height:14px;border-radius:8px;overflow:hidden;background:var(--border);}.alloc-seg{transition:width 0.6s cubic-bezier(0.16,1,0.3,1);}
-.alloc-legend{display:flex;gap:20px;margin-top:14px;flex-wrap:wrap;}.al-item{display:flex;align-items:center;gap:8px;}.al-dot{width:10px;height:10px;border-radius:3px;}.al-text{font-size:11px;color:var(--muted);}.al-text b{color:var(--text);}
+.money-flow-card{background:var(--text);color:#fff;border-radius:16px;padding:28px 30px;margin-bottom:32px;}
+.mf-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+.mf-item{display:flex;align-items:center;gap:12px;flex:1;min-width:130px;}
+.mf-item-highlight .mf-val{font-size:22px;}
+.mf-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.mf-body{display:flex;flex-direction:column;gap:2px;}
+.mf-label{font-size:9px;text-transform:uppercase;letter-spacing:0.09em;opacity:0.55;}
+.mf-val{font-family:'Instrument Serif',serif;font-size:18px;letter-spacing:-0.3px;cursor:default;}.mf-val.neg{color:#ff9b6b;}
+.mf-val-big{font-size:22px;}
+.mf-val[title]{cursor:pointer;}.mf-val[title]:hover{opacity:0.8;}
+.mf-sub{font-size:9px;opacity:0.5;}
+.mf-edit-input{font-family:'Instrument Serif',serif;font-size:18px;background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:5px;padding:1px 6px;width:120px;outline:none;}
+.mf-arrow{font-size:14px;opacity:0.25;flex-shrink:0;}
+.mf-bar-wrap{display:flex;height:6px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.1);}
+.mf-seg{height:100%;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);}
 .section{margin-bottom:30px;}.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px;}.section-head-left{display:flex;align-items:center;gap:10px;}.section-dot{width:8px;height:8px;border-radius:2px;}.section-label{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);}.section-total{font-family:'Instrument Serif',serif;font-size:20px;color:var(--ink);}
 .subgroup-label{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted2);margin:14px 0 4px;display:flex;align-items:center;gap:8px;}.subgroup-label::after{content:'';flex:1;height:1px;background:var(--border);}
 .col-headers{display:grid;padding:0 0 4px;}.col-h{font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted2);padding:0 8px;text-align:right;}.col-h:first-child{text-align:left;padding-left:0;}
